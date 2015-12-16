@@ -10,6 +10,8 @@
 set -o pipefail
 trap cleanupContainer EXIT
 
+DOCKERFILE_NAME="Dockerfile-ci"
+
 function cleanupContainer() {
   if [ -n "$CID" ]; then
     CONTAINER_RUNNING=$(docker inspect --format='{{.State.Running}}' $CID)
@@ -47,10 +49,10 @@ BUILD_CACHE_DIR="$CACHE_DIR/$JOB_NAME"
 
 # Projects that want to use this setup should maintain a Dockerfile in dockerfiles/ci
 # that describes the required build environment.
-DOCKER_CONTEXT_DIR=${DOCKER_CONTEXT_DIR:-$WORKSPACE/dockerfiles/ci}
+DOCKER_CONTEXT_DIR=${DOCKER_CONTEXT_DIR:-$WORKSPACE}
 
-if [ ! -d "$DOCKER_CONTEXT_DIR" ]; then
-  abort "No Dockerfile found at $DOCKER_CONTEXT_DIR"
+if [ ! -f "$DOCKER_CONTEXT_DIR/$DOCKERFILE_NAME" ]; then
+  abort "No $DOCKERFILE_NAME found at $DOCKER_CONTEXT_DIR"
 fi
 
 cd $DOCKER_CONTEXT_DIR
@@ -62,7 +64,7 @@ DOCKER_TAG_NAME=$(echo $JOB_NAME | tr '[:upper:]' '[:lower:]' | sed 's/[^-a-z0-9
 exec 5>&1
 
 echo "Building $DOCKER_TAG_NAME Docker image, this can take some..."
-BUILD=$(docker build $DOCKER_BUILD_OPTS -t $DOCKER_TAG_NAME . | tee >(cat - >&5))
+BUILD=$(docker build $DOCKER_BUILD_OPTS -f $DOCKERFILE_NAME -t $DOCKER_TAG_NAME . | tee >(cat - >&5))
 [ $? -eq 0 ] || abort "Docker image failed to build, check your Dockerfile."
 
 # Determine the image ID we've just built
